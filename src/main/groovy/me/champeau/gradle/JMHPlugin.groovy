@@ -57,15 +57,15 @@ class JMHPlugin implements Plugin<Project> {
 
         if (project.plugins.findPlugin('com.github.johnrengelman.shadow') == null) {
             project.tasks.create(name: 'jmhJar', type: Jar) {
+                group = 'jmh'
                 dependsOn 'jmhClasses'
                 inputs.dir project.sourceSets.jmh.output
                 doFirst {
                     def filter = { it.isDirectory() ? it : project.zipTree(it) }
                     def exclusions = {
-                        exclude '**/META-INF/services/**'
-                        exclude '**/META-INF/*.SF'
-                        exclude '**/META-INF/*.DSA'
-                        exclude '**/META-INF/*.RSA'
+                        for (path in extension.excludeFromJar) {
+                            exclude path
+                        }
                     }
                     from(project.configurations.jmh.collect(filter), exclusions)
                     from(project.configurations.compile.collect(filter), exclusions)
@@ -84,35 +84,36 @@ class JMHPlugin implements Plugin<Project> {
                 zip64 = { extension.zip64 }
             }
         } else {
-            def shadow = project.tasks.create(name: 'jmhJar', type: Class.forName('com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar',true, JMHPlugin.classLoader))
+            project.tasks.create(name: 'jmhJar', type: Class.forName('com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar',true, JMHPlugin.classLoader)) {
+                group = 'jmh'
+                description = 'Create a combined JAR of project and runtime dependencies'
+                dependsOn 'jmhClasses'
+                classifier = 'jmh'
 
-            shadow.group = 'jmh'
-            shadow.description = 'Create a combined JAR of project and runtime dependencies'
-            shadow.conventionMapping.with {
-                map('classifier') {
-                    'jmh'
-                }
-            }
-            shadow.manifest.inheritFrom project.tasks.jar.manifest
-            shadow.manifest.attributes 'Main-Class': 'org.openjdk.jmh.Main'
-            shadow.doFirst { task ->
-                def processLibs = { files ->
-                    if (files) {
-                        def libs = [task.manifest.attributes.get('Class-Path')]
-                        libs.addAll files.collect { it.name }
-                        task.manifest.attributes 'Class-Path': libs.unique().join(' ')
+                manifest.inheritFrom project.tasks.jar.manifest
+                manifest.attributes 'Main-Class': 'org.openjdk.jmh.Main'
+
+                doFirst { task ->
+                    def processLibs = { files ->
+                        if (files) {
+                            def libs = [task.manifest.attributes.get('Class-Path')]
+                            libs.addAll files.collect { it.name }
+                            task.manifest.attributes 'Class-Path': libs.unique().join(' ')
+                        }
                     }
+                    processLibs project.configurations.jmh.files
+                    processLibs project.configurations.compile.files
+
+                    from(project.sourceSets.jmh.output)
+                    from(project.sourceSets.main.output)
+                    if (extension.includeTests) {
+                        from(project.sourceSets.test.output)
+                    }
+                    configurations = [project.configurations.runtime, project.configurations.jmh]
+                    exclude(extension.excludeFromJar)
+
                 }
-                processLibs project.configurations.jmh.files
-                processLibs project.configurations.shadow.files
             }
-            shadow.from(project.sourceSets.jmh.output)
-            shadow.from(project.sourceSets.main.output)
-            if (extension.includeTests) {
-                shadow.from(project.sourceSets.test.output)
-            }
-            shadow.configurations = [project.configurations.runtime, project.configurations.jmh]
-            shadow.exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
         }
 
         project.tasks.create(name: 'jmh', type: JavaExec) {

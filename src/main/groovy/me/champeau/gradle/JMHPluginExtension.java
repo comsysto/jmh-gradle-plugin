@@ -1,15 +1,11 @@
 package me.champeau.gradle;
 
-import groovy.lang.Closure;
-import groovy.lang.GString;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.gradle.api.Project;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class JMHPluginExtension {
     private final Project project;
@@ -48,6 +44,8 @@ public class JMHPluginExtension {
     private String warmupMode;
     private List<String> warmupBenchmarks;
     private boolean zip64 = false;
+    private List<String> excludeFromJar;
+
 
     public JMHPluginExtension(final Project project) {
         this.project = project;
@@ -411,5 +409,15 @@ public class JMHPluginExtension {
 
     public void setIncludeTests(boolean includeTests) {
         this.includeTests = includeTests;
+    }
+
+
+    public List<String> getExcludeFromJar() {
+        return excludeFromJar;
+    }
+
+
+    public void setExcludeFromJar(List<String> excludeFromJar) {
+        this.excludeFromJar = excludeFromJar;
     }
 }
